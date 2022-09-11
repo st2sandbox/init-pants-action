@@ -26,8 +26,23 @@ runs:
       with:
         python-version: '${{ inputs.pants-python-version }}'
 
+    - name: Get Pants version
+      id: pants_version
+      run: |
+        # Capture the "pants_version = " line from config.
+        PANTS_VERSION=$(grep -r '^pants_version\s*=' pants.toml)
+        echo "::set-output name=pants_version::$PANTS_VERSION"
+
+    - name: Cache Pants Setup (${{ steps.pants_version.outputs.pants_version }}-py${{ inputs.pants-python-version }})
+      id: cache-pants-setup
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/pants/setup
+        key: pants-setup-${{ runner.os }}-${{ steps.pants_version.outputs.pants_version }}-py${{ inputs.pants-python-version }}
+
     # Looking up the merge commit allows us to use the cache
-    # from the latest commit to the base branch.
+    # from the merge-base commit on the base branch.
     - name: Get Pants Cache Merge Base Commit (base branch commit to pull cache from)
       id: pants-cache-commit
       run: |
@@ -35,19 +50,29 @@ runs:
         echo MERGEBASE=${COMMIT}
         echo "::set-output name=MERGEBASE::${COMMIT}"
 
-    # TODO: handle projects that use remote caching
-    - name: Cache Pants Caches (${{ inputs.gha-cache-key }})
+    - name: Cache Pants Named Caches (${{ inputs.gha-cache-key }})
       uses: actions/cache@v2
-      id: pants-cache
+      id: cache-pants-named-caches
       with:
         path: |
-          ~/.cache/pants/setup
-          ~/.cache/pants/lmdb_store
           ~/.cache/pants/named_caches
-        key: ${{ runner.os }}-pants-${{ inputs.gha-cache-key }}-${{ github.sha }}
+        key: pants-named-caches-${{ runner.os }}-${{ inputs.gha-cache-key }}-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-pants-${{ inputs.gha-cache-key }}-${{ steps.pants-cache-commit.outputs.MERGEBASE }}
-          ${{ runner.os }}-pants-${{ inputs.gha-cache-key }}-
+          pants-named-caches-${{ runner.os }}-${{ inputs.gha-cache-key }}-${{ steps.pants-cache-commit.outputs.MERGEBASE }}
+          pants-named-caches-${{ runner.os }}-${{ inputs.gha-cache-key }}-
+
+    # TODO: handle projects that use remote caching
+    # see https://www.pantsbuild.org/docs/remote-caching
+    - name: Cache Pants LMDB Store (${{ inputs.gha-cache-key }})
+      uses: actions/cache@v2
+      id: cache-pants-lmdb-store
+      with:
+        path: |
+          ~/.cache/pants/lmdb_store
+        key: pants-lmdb-store-${{ runner.os }}-pants-${{ inputs.gha-cache-key }}-${{ github.sha }}
+        restore-keys: |
+          pants-lmdb-store-${{ runner.os }}-${{ inputs.gha-cache-key }}-${{ steps.pants-cache-commit.outputs.MERGEBASE }}
+          pants-lmdb-store-${{ runner.os }}-${{ inputs.gha-cache-key }}-
 
     # Adding env vars to ${GITHUB_ENV} makes the vars show up for all subsequent steps
     # in the workflow (in the workflow that uses this composite action).
