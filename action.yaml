@@ -28,6 +28,7 @@ runs:
 
     - name: Get Pants version
       id: pants_version
+      shell: bash
       run: |
         # Capture the "pants_version = " line from config.
         PANTS_VERSION=$(grep -r '^pants_version\s*=' pants.toml)
@@ -45,6 +46,7 @@ runs:
     # from the merge-base commit on the base branch.
     - name: Get Pants Cache Merge Base Commit (base branch commit to pull cache from)
       id: pants-cache-commit
+      shell: bash
       run: |
         COMMIT=$(git merge-base ${GITHUB_BASE_REF:-${{ inputs.base-branch }}} HEAD | head -n1)
         echo MERGEBASE=${COMMIT}
@@ -78,10 +80,12 @@ runs:
     # in the workflow (in the workflow that uses this composite action).
     # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
     - name: Tell pants to use CI config
-      if: ${{ input.pants-ci-config != '' }}
+      if: ${{ inputs.pants-ci-config != '' }}
+      shell: bash
       run: |
         echo "PANTS_CONFIG_FILES=${{ inputs.pants-ci-config }}" >> ${GITHUB_ENV}
 
     - name: Bootstrap Pants
+      shell: bash
       run: |
         ./pants --version
