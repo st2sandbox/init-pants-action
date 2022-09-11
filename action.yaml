@@ -42,15 +42,20 @@ runs:
           ~/.cache/pants/setup
         key: pants-setup-${{ runner.os }}-${{ steps.pants_version.outputs.pants_version }}-py${{ inputs.pants-python-version }}
 
-    # Looking up the merge commit allows us to use the cache
-    # from the merge-base commit on the base branch.
-    - name: Get Pants Cache Merge Base Commit (base branch commit to pull cache from)
+    # Looking up the commit allows us to use the cache
+    # from the latest commit on the base branch.
+    - name: Get Pants Cache Commit (base branch commit to pull cache from)
       id: pants-cache-commit
       shell: bash
+      # we could use this, but only if fetch-depth goes back far enough
+      # COMMIT=$(git merge-base ${GITHUB_BASE_REF:-${{ inputs.base-branch }}} HEAD | head -n1)
       run: |
-        COMMIT=$(git merge-base ${GITHUB_BASE_REF:-${{ inputs.base-branch }}} HEAD | head -n1)
-        echo MERGEBASE=${COMMIT}
-        echo "::set-output name=MERGEBASE::${COMMIT}"
+        CACHECOMMIT=$(
+          gh api -H "Accept: application/vnd.github+json" \
+          '/repos/${{ github.repository }}/commits?per_page=1&sha=${{ inputs.base-branch }}' \
+          -q '.[].sha'
+        )
+        echo "::set-output name=CACHECOMMIT::${CACHECOMMIT}"
 
     - name: Cache Pants Named Caches (${{ inputs.gha-cache-key }})
       uses: actions/cache@v2
@@ -60,7 +65,7 @@ runs:
           ~/.cache/pants/named_caches
         key: pants-named-caches-${{ runner.os }}-${{ inputs.gha-cache-key }}-${{ github.sha }}
         restore-keys: |
-          pants-named-caches-${{ runner.os }}-${{ inputs.gha-cache-key }}-${{ steps.pants-cache-commit.outputs.MERGEBASE }}
+          pants-named-caches-${{ runner.os }}-${{ inputs.gha-cache-key }}-${{ steps.pants-cache-commit.outputs.CACHECOMMIT }}
           pants-named-caches-${{ runner.os }}-${{ inputs.gha-cache-key }}-
 
     # TODO: handle projects that use remote caching
@@ -73,7 +78,7 @@ runs:
           ~/.cache/pants/lmdb_store
         key: pants-lmdb-store-${{ runner.os }}-pants-${{ inputs.gha-cache-key }}-${{ github.sha }}
         restore-keys: |
-          pants-lmdb-store-${{ runner.os }}-${{ inputs.gha-cache-key }}-${{ steps.pants-cache-commit.outputs.MERGEBASE }}
+          pants-lmdb-store-${{ runner.os }}-${{ inputs.gha-cache-key }}-${{ steps.pants-cache-commit.outputs.CACHECOMMIT }}
           pants-lmdb-store-${{ runner.os }}-${{ inputs.gha-cache-key }}-
 
     # Adding env vars to ${GITHUB_ENV} makes the vars show up for all subsequent steps
