@@ -57,7 +57,7 @@ runs:
         )
         echo "::set-output name=CACHECOMMIT::${CACHECOMMIT}"
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ github.token }}
 
     - name: Cache Pants Named Caches (${{ inputs.gha-cache-key }})
       uses: actions/cache@v2
