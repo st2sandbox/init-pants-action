@@ -13,6 +13,10 @@ inputs:
   gha-cache-key:
     required: true
     # use this for matrix.python-version or similar
+  pants-ci-config:
+    required: false
+    default: pants.ci.toml
+    # set to empty string to disable
 
 runs:
   using: "composite"
@@ -31,6 +35,7 @@ runs:
         echo MERGEBASE=${COMMIT}
         echo "::set-output name=MERGEBASE::${COMMIT}"
 
+    # TODO: handle projects that use remote caching
     - name: Cache Pants Caches (${{ inputs.gha-cache-key }})
       uses: actions/cache@v2
       id: pants-cache
@@ -48,8 +53,9 @@ runs:
     # in the workflow (in the workflow that uses this composite action).
     # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
     - name: Tell pants to use CI config
+      if: ${{ input.pants-ci-config != '' }}
       run: |
-        echo "PANTS_CONFIG_FILES=pants.ci.toml" >> ${GITHUB_ENV}
+        echo "PANTS_CONFIG_FILES=${{ inputs.pants-ci-config }}" >> ${GITHUB_ENV}
 
     - name: Bootstrap Pants
       run: |
